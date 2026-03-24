@@ -1,0 +1,124 @@
+name: Build and Notify Telegram
+
+on:
+  workflow_dispatch:
+
+jobs:
+  prepare:
+    runs-on: ubuntu-latest
+    outputs:
+      timestamp: ${{ steps.set-timestamp.outputs.timestamp }}
+      timestamp_int: ${{ steps.set-timestamp.outputs.timestamp_int }}
+    steps:
+      - id: set-timestamp
+        run: |
+          echo "timestamp=$(date +'%Y%m%d%H%M')" >> "$GITHUB_OUTPUT"
+          echo "timestamp_int=$(date +'%s' | cut -c 1-9)" >> "$GITHUB_OUTPUT"
+
+  build_android:
+    needs: prepare
+    runs-on: ubuntu-latest
+    steps:
+      - name: Clone repo
+        env:
+          GITHUB_TOKEN: ${{ secrets.PRIVATE_REPO_TOKEN }}
+        run: |
+          git init
+          git remote add origin https://x-access-token:${GITHUB_TOKEN}@github.com/iamCristYE/lucky-sum.git
+          git fetch
+          git checkout origin/main
+
+      - uses: actions/setup-java@v5
+        with:
+          distribution: 'zulu'
+          java-version: '17'
+
+      - name: Clone Flutter repository
+        run: |
+          git clone https://github.com/flutter/flutter.git --depth 1 -b stable $HOME/flutter
+          echo "$HOME/flutter/bin" >> $GITHUB_PATH
+
+      - name: Get dependencies
+        run: flutter pub get
+
+      - name: Build Release APK
+        run: |
+          flutter build apk --release \
+            --build-name="1.0.${{ needs.prepare.outputs.timestamp }}" \
+            --build-number=${{ needs.prepare.outputs.timestamp_int }}
+          mv build/app/outputs/flutter-apk/app-release.apk luckysum_${{ needs.prepare.outputs.timestamp }}.apk
+
+      - name: Build Mock Debug APK
+        run: |
+          flutter build apk --debug \
+            --dart-define=MOCK_API=true \
+            --build-name="1.0.${{ needs.prepare.outputs.timestamp }}-mock" \
+            --build-number=${{ needs.prepare.outputs.timestamp_int }}
+          mv build/app/outputs/flutter-apk/app-debug.apk luckysum_mock_${{ needs.prepare.outputs.timestamp }}.apk
+
+      - name: Zip APKs
+        run: |
+          zip -9 luckysum_${{ needs.prepare.outputs.timestamp }}.zip \
+            luckysum_${{ needs.prepare.outputs.timestamp }}.apk
+
+          zip -9 luckysum_mock_${{ needs.prepare.outputs.timestamp }}.zip \
+            luckysum_mock_${{ needs.prepare.outputs.timestamp }}.apk
+
+      - name: Send ZIPs to Telegram
+        env:
+          BOT_TOKEN: ${{ secrets.TELEGRAM_BOT_TOKEN }}
+          CHAT_ID: "-1002646331785"
+          THREAD_ID: "4709"
+        run: |
+          curl -f -F "chat_id=${CHAT_ID}" \
+               -F "message_thread_id=${THREAD_ID}" \
+               -F "document=@luckysum_${{ needs.prepare.outputs.timestamp }}.zip" \
+               "https://api.telegram.org/bot${BOT_TOKEN}/sendDocument"
+
+          curl -f -F "chat_id=${CHAT_ID}" \
+               -F "message_thread_id=${THREAD_ID}" \
+               -F "document=@luckysum_mock_${{ needs.prepare.outputs.timestamp }}.zip" \
+               "https://api.telegram.org/bot${BOT_TOKEN}/sendDocument"
+
+  build_ios:
+    needs: prepare
+    runs-on: macos-latest
+    steps:
+      - name: Clone repo
+        env:
+          GITHUB_TOKEN: ${{ secrets.PRIVATE_REPO_TOKEN }}
+        run: |
+          git init
+          git remote add origin https://x-access-token:${GITHUB_TOKEN}@github.com/iamCristYE/lucky-sum.git
+          git fetch
+          git checkout origin/main
+
+      - name: Install Flutter
+        run: |
+          git clone https://github.com/flutter/flutter.git --depth 1 -b stable $HOME/flutter
+          echo "$HOME/flutter/bin" >> $GITHUB_PATH
+          echo "FLUTTER_ROOT=$HOME/flutter" >> $GITHUB_ENV
+
+      - name: Get dependencies
+        run: |
+          flutter clean
+          flutter pub get
+
+      - name: Build iOS app
+        run: flutter build ios --release --no-codesign
+
+      - name: Package unsigned IPA
+        run: |
+          mkdir -p build/ios/iphoneos/Payload
+          cp -r build/ios/iphoneos/Runner.app build/ios/iphoneos/Payload/
+          cd build/ios/iphoneos
+          zip -r luckysum_${{ needs.prepare.outputs.timestamp }}.ipa Payload
+          cd ../../..
+
+      - name: Send IPA to Telegram
+        env:
+          BOT_TOKEN: ${{ secrets.TELEGRAM_BOT_TOKEN }}
+          CHAT_ID: "-1002646331785"
+          THREAD_ID: "4709"
+        run: |
+          curl -F "chat_id=${CHAT_ID}" -F "message_thread_id=${THREAD_ID}" -F "document=@build/ios/iphoneos/luckysum_${{ needs.prepare.outputs.timestamp }}.ipa" "https://api.telegram.org/bot${BOT_TOKEN}/sendDocument"
