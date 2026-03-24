@@ -48,21 +48,21 @@ jobs:
             --build-number=${{ needs.prepare.outputs.timestamp_int }}
           mv build/app/outputs/flutter-apk/app-release.apk luckysum_${{ needs.prepare.outputs.timestamp }}.apk
 
-      - name: Build Mock Debug APK
-        run: |
-          flutter build apk --debug \
-            --dart-define=MOCK_API=true \
-            --build-name="1.0.${{ needs.prepare.outputs.timestamp }}-mock" \
-            --build-number=${{ needs.prepare.outputs.timestamp_int }}
-          mv build/app/outputs/flutter-apk/app-debug.apk luckysum_mock_${{ needs.prepare.outputs.timestamp }}.apk
+      # - name: Build Mock Debug APK
+      #   run: |
+      #     flutter build apk --debug \
+      #       --dart-define=MOCK_API=true \
+      #       --build-name="1.0.${{ needs.prepare.outputs.timestamp }}-mock" \
+      #       --build-number=${{ needs.prepare.outputs.timestamp_int }}
+      #     mv build/app/outputs/flutter-apk/app-debug.apk luckysum_mock_${{ needs.prepare.outputs.timestamp }}.apk
 
       - name: Zip APKs
         run: |
           zip -9 luckysum_${{ needs.prepare.outputs.timestamp }}.zip \
             luckysum_${{ needs.prepare.outputs.timestamp }}.apk
 
-          zip -9 luckysum_mock_${{ needs.prepare.outputs.timestamp }}.zip \
-            luckysum_mock_${{ needs.prepare.outputs.timestamp }}.apk
+          # zip -9 luckysum_mock_${{ needs.prepare.outputs.timestamp }}.zip \
+          #   luckysum_mock_${{ needs.prepare.outputs.timestamp }}.apk
 
       - name: Send ZIPs to Telegram
         env:
@@ -75,10 +75,10 @@ jobs:
                -F "document=@luckysum_${{ needs.prepare.outputs.timestamp }}.zip" \
                "https://api.telegram.org/bot${BOT_TOKEN}/sendDocument"
 
-          curl -F "chat_id=${CHAT_ID}" \
-               -F "message_thread_id=${THREAD_ID}" \
-               -F "document=@luckysum_mock_${{ needs.prepare.outputs.timestamp }}.zip" \
-               "https://api.telegram.org/bot${BOT_TOKEN}/sendDocument"
+          # curl -F "chat_id=${CHAT_ID}" \
+          #      -F "message_thread_id=${THREAD_ID}" \
+          #      -F "document=@luckysum_mock_${{ needs.prepare.outputs.timestamp }}.zip" \
+          #      "https://api.telegram.org/bot${BOT_TOKEN}/sendDocument"
 
   build_ios:
     needs: prepare
