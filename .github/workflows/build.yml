@@ -70,12 +70,12 @@ jobs:
           CHAT_ID: "-1002646331785"
           THREAD_ID: "4709"
         run: |
-          curl -f -F "chat_id=${CHAT_ID}" \
+          curl -F "chat_id=${CHAT_ID}" \
                -F "message_thread_id=${THREAD_ID}" \
                -F "document=@luckysum_${{ needs.prepare.outputs.timestamp }}.zip" \
                "https://api.telegram.org/bot${BOT_TOKEN}/sendDocument"
 
-          curl -f -F "chat_id=${CHAT_ID}" \
+          curl -F "chat_id=${CHAT_ID}" \
                -F "message_thread_id=${THREAD_ID}" \
                -F "document=@luckysum_mock_${{ needs.prepare.outputs.timestamp }}.zip" \
                "https://api.telegram.org/bot${BOT_TOKEN}/sendDocument"
